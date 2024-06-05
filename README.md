@@ -11,8 +11,8 @@ right now, but the code is still sloppy! Use your best judgement.
 
 ## Todo
 
-- Support multiple input files
-- Support BSPs
+- ~~Support multiple input files~~
+- ~~Support BSPs~~
 - Preserve fullbright indices
 
 ## License:
