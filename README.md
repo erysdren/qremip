@@ -9,6 +9,12 @@ other engine that uses the embedded mip textures.
 **!!NOTE!!**: This tool edits WAD files in place! It doesn't have any known bugs
 right now, but the code is still sloppy! Use your best judgement.
 
+## Todo
+
+- Support multiple input files
+- Support BSPs
+- Preserve fullbright indices
+
 ## License:
 
 Public domain.
