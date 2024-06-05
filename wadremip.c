@@ -23,6 +23,7 @@
 
 #include "quake_palette.h"
 
+static const uint32_t bsp_magic = 0x0000001D; /* 29 */
 static const uint32_t wad2_magic = 0x32444157; /* WAD2 */
 enum {
 	WAD2_LUMP_PALETTE = 0x40,
@@ -30,6 +31,11 @@ enum {
 	WAD2_LUMP_MIPTEX = 0x44,
 	WAD2_LUMP_CONPIC = 0x45
 };
+
+typedef struct mipheader {
+	int32_t num_textures;
+	int32_t *ofs_textures;
+} mipheader_t;
 
 typedef struct miptex {
 	char name[16];
@@ -72,7 +78,7 @@ void wad_free(wad_t *wad)
 	free(wad);
 }
 
-void die(const char *s, ...)
+void reset(const char *s, ...)
 {
 	static char buffer[1024];
 	va_list ap;
@@ -81,7 +87,7 @@ void die(const char *s, ...)
 	vsnprintf(buffer, sizeof(buffer), s, ap);
 	va_end(ap);
 
-	fprintf(stderr, "error: %s\n", buffer);
+	fprintf(stderr, "warning: %s\n", buffer);
 
 	if (wad)
 		wad_free(wad);
@@ -92,7 +98,9 @@ void die(const char *s, ...)
 	if (miptex)
 		free(miptex);
 
-	exit(EXIT_FAILURE);
+	wad = NULL;
+	file = NULL;
+	miptex = NULL;
 }
 
 static inline int isqr(int a) { return a * a; }
@@ -196,27 +204,78 @@ static uint8_t *bilinear_u8(uint8_t *image, int w, int h, int new_w, int new_h, 
 	return out;
 }
 
-int main(int argc, char **argv)
+void process_bsp(void)
 {
-	uint32_t magic;
+	int32_t ofs_miptex, len_miptex, num_textures;
+	int32_t *ofs_textures;
+	int t, m;
+
+	/* read lump offset */
+	fseek(file, 20, SEEK_SET);
+	fread(&ofs_miptex, 4, 1, file);
+	fread(&len_miptex, 4, 1, file);
+
+	/* read number of textures */
+	fseek(file, ofs_miptex, SEEK_SET);
+	fread(&num_textures, 4, 1, file);
+
+	/* read texture offsets */
+	ofs_textures = calloc(4, num_textures);
+	fread(ofs_textures, 4, num_textures, file);
+
+	miptex = calloc(1, sizeof(miptex_t));
+
+	/* loop over all miptextures */
+	for (t = 0; t < num_textures; t++)
+	{
+		uint8_t *src;
+
+		/* read miptex */
+		fseek(file, ofs_miptex + ofs_textures[t], SEEK_SET);
+		fread(miptex, sizeof(miptex_t), 1, file);
+
+		/* read mip 0 */
+		src = calloc(1, miptex->width * miptex->height);
+		fseek(file, ofs_miptex + ofs_textures[t] + miptex->offsets[0], SEEK_SET);
+		fread(src, miptex->width * miptex->height, 1, file);
+
+		/* generate 3 mip levels */
+		for (m = 1; m < 4; m++)
+		{
+			int new_w, new_h;
+			uint8_t *mip;
+
+			new_w = miptex->width >> m;
+			new_h = miptex->height >> m;
+
+			/* generate mip */
+			mip = bilinear_u8(src, miptex->width, miptex->height, new_w, new_h, quake_palette);
+
+			/* write it */
+			fseek(file, ofs_miptex + ofs_textures[t] + miptex->offsets[m], SEEK_SET);
+			fwrite(mip, new_w * new_h, 1, file);
+
+			free(mip);
+		}
+
+		printf("Generated new mips for \"%s\"\n", miptex->name);
+
+		free(src);
+	}
+
+	/* cleanup */
+	free(ofs_textures);
+	free(miptex);
+	fclose(file);
+	file = NULL;
+	miptex = NULL;
+}
+
+void process_wad(void)
+{
 	int32_t num_lumps;
 	int32_t ofs_lumps;
-	int i, m;
-
-	if (argc < 2)
-		die("You must provide atleast one input file.");
-
-	file = fopen(argv[1], "rb+");
-	if (file == NULL)
-		die("Could not open \"%s\" for editing.", argv[1]);
-
-	/* check wad magic */
-	fseek(file, 0, SEEK_SET);
-	fread(&magic, 4, 1, file);
-	if (memcmp(&magic, &wad2_magic, 4) != 0)
-		die("File signature 0x%04x oes not match the expected signature 0x%04x.", magic, wad2_magic);
-
-	printf("Successfully opened \"%s\"\n", argv[1]);
+	int l, m;
 
 	/* read wad header */
 	fread(&num_lumps, 4, 1, file);
@@ -233,23 +292,23 @@ int main(int argc, char **argv)
 	miptex = calloc(1, sizeof(miptex_t));
 
 	/* go over all the lumps */
-	for (i = 0; i < num_lumps; i++)
+	for (l = 0; l < num_lumps; l++)
 	{
 		uint8_t *src;
 
-		if (wad->lumps[i].type != WAD2_LUMP_MIPTEX)
+		if (wad->lumps[l].type != WAD2_LUMP_MIPTEX)
 		{
-			printf("\"%s\" is not a miptex lump\n", wad->lumps[i].name);
+			printf("\"%s\" is not a miptex lump\n", wad->lumps[l].name);
 			continue;
 		}
 
 		/* read miptex data */
-		fseek(file, wad->lumps[i].ofs_data, SEEK_SET);
+		fseek(file, wad->lumps[l].ofs_data, SEEK_SET);
 		fread(miptex, sizeof(miptex_t), 1, file);
 
 		/* read mip 0 */
 		src = calloc(1, miptex->width * miptex->height);
-		fseek(file, wad->lumps[i].ofs_data + miptex->offsets[0], SEEK_SET);
+		fseek(file, wad->lumps[l].ofs_data + miptex->offsets[0], SEEK_SET);
 		fread(src, miptex->width * miptex->height, 1, file);
 
 		/* generate 3 mip levels */
@@ -265,22 +324,62 @@ int main(int argc, char **argv)
 			mip = bilinear_u8(src, miptex->width, miptex->height, new_w, new_h, quake_palette);
 
 			/* write it */
-			fseek(file, wad->lumps[i].ofs_data + miptex->offsets[m], SEEK_SET);
+			fseek(file, wad->lumps[l].ofs_data + miptex->offsets[m], SEEK_SET);
 			fwrite(mip, new_w * new_h, 1, file);
 
 			free(mip);
 		}
 
-		printf("Generated new mips for \"%s\"\n", wad->lumps[i].name);
+		printf("Generated new mips for \"%s\"\n", wad->lumps[l].name);
 
 		free(src);
 	}
 
-	/* bye */
-	printf("Goodbye!\n");
 	wad_free(wad);
 	fclose(file);
 	free(miptex);
+
+	wad = NULL;
+	file = NULL;
+	miptex = NULL;
+}
+
+int main(int argc, char **argv)
+{
+	uint32_t magic;
+	int i;
+
+	printf("Usage: wadremip <tex1.wad> <tex2.wad> <map1.bsp> <map2.bsp> ...\n");
+
+	for (i = 1; i < argc; i++)
+	{
+		file = fopen(argv[i], "rb+");
+		if (file == NULL)
+		{
+			reset("Could not open \"%s\" for editing.", argv[i]);
+			continue;
+		}
+
+		/* check wad magic */
+		fread(&magic, 4, 1, file);
+		if (memcmp(&magic, &wad2_magic, 4) == 0)
+		{
+			printf("Processing \"%s\" as WAD\n", argv[i]);
+			process_wad();
+		}
+		else if (memcmp(&magic, &bsp_magic, 4) == 0)
+		{
+			printf("Processing \"%s\" as BSP\n", argv[i]);
+			process_bsp();
+		}
+		else
+		{
+			reset("File signature 0x%04x does not match the signature for either WAD or BSP.", magic);
+			continue;
+		}
+
+		printf("Finished processing \"%s\"\n", argv[i]);
+	}
 
 	return EXIT_SUCCESS;
 }

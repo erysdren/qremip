@@ -2,5 +2,7 @@
 *.exe
 *.wad
 *.bak
+*.bsp
+*.map
 wadremip
 untracked/

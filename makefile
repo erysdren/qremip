@@ -4,7 +4,6 @@ CC ?= gcc
 SOURCES = wadremip.c
 
 override CFLAGS += -pedantic -Wall -Wextra -Werror -g3
-override LDFLAGS += -lm
 
 EXEC ?= wadremip
 
