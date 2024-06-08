@@ -1,11 +1,11 @@
 
 CC ?= gcc
 
-SOURCES = wadremip.c
+SOURCES = qremip.c
 
 override CFLAGS += -pedantic -Wall -Wextra -Werror -g3
 
-EXEC ?= wadremip
+EXEC ?= qremip
 
 all: clean $(EXEC)
 

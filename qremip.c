@@ -1,5 +1,5 @@
 /*
- * wadremip - generate better mips for quake WADs
+ * qremip - generate better mips for quake WADs
  * by erysdren
  *
  * license: public domain
@@ -364,7 +364,7 @@ int main(int argc, char **argv)
 	uint32_t magic;
 	int i;
 
-	printf("Usage: wadremip <tex1.wad> <tex2.wad> <map1.bsp> <map2.bsp> ...\n");
+	printf("Usage: qremip <tex1.wad> <tex2.wad> <map1.bsp> <map2.bsp> ...\n");
 
 	for (i = 1; i < argc; i++)
 	{
