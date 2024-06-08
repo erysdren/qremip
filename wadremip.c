@@ -23,6 +23,13 @@
 
 #include "quake_palette.h"
 
+/* fullbrights in the quake palette */
+static const int num_fullbrights = 32;
+static const int fullbrights_start = 255 - num_fullbrights;
+
+/* transparency index in the quake palette */
+static const int transparent_index = 255;
+
 static const uint32_t bsp_magic = 0x0000001D; /* 29 */
 static const uint32_t wad2_magic = 0x32444157; /* WAD2 */
 enum {
@@ -187,13 +194,21 @@ static uint8_t *bilinear_u8(uint8_t *image, int w, int h, int new_w, int new_h, 
 			c = image[yhigh * w + xlow];
 			d = image[yhigh * w + xhigh];
 
-			/* if any of these are a transparent index, just write that */
-			if (a == 255 || b == 255 || c == 255 || d == 255)
+			if (a == transparent_index || b == transparent_index ||
+				c == transparent_index || d == transparent_index)
 			{
+				/* if any of these are a transparent index, just write that */
 				out[y * new_w + x] = 255;
+			}
+			else if (a >= fullbrights_start || b >= fullbrights_start ||
+				c >= fullbrights_start || d >= fullbrights_start)
+			{
+				/* fullbrights don't get blending either */
+				out[y * new_w + x] = a;
 			}
 			else
 			{
+				/* blend color */
 				alpha = src_x - (float)xlow;
 				beta = src_y - (float)ylow;
 				out[y * new_w + x] = blend4_u8(alpha, beta, a, b, c, d, palette);
