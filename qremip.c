@@ -1,8 +1,8 @@
 /*
  * qremip - generate better mips for quake WADs
- * by erysdren
+ * created in 2024 by erysdren (it/its)
  *
- * license: public domain
+ * license: cc0 or public domain, whichever is more suitable for you
  */
 
 /*
