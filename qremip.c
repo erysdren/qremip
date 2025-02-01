@@ -389,7 +389,7 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			reset("File signature 0x%04x does not match the signature for either WAD or BSP.", magic);
+			reset("File signature 0x%08x does not match the signature for either WAD or BSP.", magic);
 			continue;
 		}
 
