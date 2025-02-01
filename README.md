@@ -11,4 +11,4 @@ embedded mip textures.
 
 ## License:
 
-Public domain.
+CC0 or Public Domain, whichever is more suitable for you.
