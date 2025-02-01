@@ -7,8 +7,7 @@ filtering for the transparent color index (255) and the "fullbright" indices
 results in software-rendered Quake engines and any other engine that uses the
 embedded mip textures.
 
-**!!NOTE!!**: This tool edits WAD and BSP files in place! It doesn't have any
-known bugs right now, but the code is still sloppy! Use your best judgement.
+**!!NOTE!!**: This tool edits WAD and BSP files in place! Use at your own risk.
 
 ## License:
 
